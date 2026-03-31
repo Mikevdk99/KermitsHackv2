@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>Boef Control Dashboard</title>
+<style>
+*{box-sizing:border-box;}
+body{margin:0;font-family:'Courier New', monospace;background:#0b1220;color:white;}
+.wrapper{display:grid;grid-template-columns:240px 1fr;height:100vh;}
+.sidebar{background:#060c18;border-right:1px solid #1e293b;padding:20px;}
+.logo{font-size:22px;font-weight:bold;margin-bottom:30px;color:#0ff;}
+.menu button{width:100%;padding:12px;margin-bottom:8px;background:#0f172a;border:none;color:#0ff;border-radius:6px;cursor:pointer;font-weight:bold;}
+.menu button:hover{background:#1e293b;color:#22c55e;}
+.main{display:flex;flex-direction:column;height:100vh;}
+.header{background:#060c18;padding:15px 25px;border-bottom:1px solid #1e293b;display:flex;justify-content:space-between;align-items:center;font-family:'Courier New', monospace;}
+.money{color:#22c55e;font-weight:bold;}
+.content{padding:25px;overflow:auto;}
+.page{display:none;}
+.page.active{display:block;}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:25px;}
+.stat{background:#1e293b;padding:15px;border-radius:8px;border:1px solid #22c55e;}
+.dashboard{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.card{background:#1e293b;padding:20px;border-radius:10px;box-shadow:0 10px 20px rgba(0,0,0,0.3);}
+.card.loop:hover{transform: translateY(-5px);box-shadow:0 15px 25px rgba(0,255,255,0.5);transition: all 0.3s ease;}
+.card.category{cursor:pointer;text-align:center;padding:40px;font-size:18px;font-weight:bold;transition:all 0.3s ease;}
+.card.category:hover{background:#1e293b;transform:scale(1.05);}
+button{border:none;padding:8px 12px;border-radius:5px;cursor:pointer;margin-top:5px;}
+.start{background:#22c55e;color:white;}
+.stop{background:#ef4444;color:white;}
+.barbg{height:8px;background:#334155;border-radius:5px;margin-top:10px;}
+.bar{height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#16a34a);border-radius:5px;transition:width 0.1s linear;}
+.input-block{margin-bottom:10px;background:#1e293b;padding:10px;border-radius:8px;display:flex;align-items:center;gap:10px;}
+input[type=number]{width:60px;padding:5px;border-radius:5px;border:none;background:#0f172a;color:white;text-align:center;}
+input[type=text]{width:120px;padding:5px;border-radius:5px;border:none;background:#0f172a;color:white;}
+label{font-size:14px;}
+.countdown{color:#22c55e;font-weight:bold;}
+
+/* LOGIN OVERLAY */
+#loginOverlay{
+  position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(11,18,32,0.95);display:flex;justify-content:center;align-items:center;z-index:9999;flex-direction:column;
+}
+#loginOverlay h2{color:#0ff;margin-bottom:20px;font-size:28px;}
+#loginOverlay input{padding:12px 15px;font-size:16px;border-radius:8px;border:none;margin-bottom:10px;width:250px;background:#0f172a;color:white;}
+#loginOverlay button{padding:12px 20px;font-size:16px;border-radius:8px;border:none;background:#22c55e;color:white;cursor:pointer;transition:all 0.3s;}
+#loginOverlay button:hover{background:#16a34a;}
+#loginOverlay .error{color:#ef4444;margin-top:10px;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay">
+  <h2>Voer Wachtwoord in</h2>
+  <input type="password" id="passwordInput" placeholder="Wachtwoord">
+  <button onclick="checkPassword()">Login</button>
+  <div class="error" id="loginError"></div>
+</div>
+
+<div class="wrapper">
+  <div class="sidebar">
+    <div class="logo">BOEF Control Dashboard</div>
+    <div class="menu">
+      <button onclick="showPage('dashboard')">Dashboard</button>
+      <button onclick="showPage('loops')">Tools</button>
+      <button onclick="showPage('stats')">Statistieken</button>
+      <button onclick="showPage('settings')">Settings</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="header">
+      <div>Welkom bij de Boef Control Dashboard</div>
+      <span id="clock"></span>
+      <div class="money">Made by Kermit</div>
+    </div>
+    <div class="content">
+      <!-- DASHBOARD -->
+      <div id="dashboard" class="page active">
+        <div class="stats">
+          <div class="stat">Tools Manager PRO<br><b>v2.0</b></div>
+          <div class="stat">Aantal Tools<br><b>8</b></div>
+          <div class="stat">Laatst geupdate<br><b>15-03-2026</b></div>
+          <div class="stat">Gemaakt door<br><b>Kermit</b></div>
+        </div>
+        <div class="dashboard">
+          <div class="card"><h3>Server Status</h3><p>Online 🟢</p></div>
+          <div class="card"><h3>Tools actief</h3><p id="activeLoops">0</p></div>
+          <div class="card"><h3>Aantal tools per minuut</h3><p id="rpm">0</p></div>
+          <div class="card"><h3>Windows open</h3><p id="windows">0</p></div>
+        </div>
+      </div>
+
+      <!-- LOOPS -->
+      <div id="loops" class="page">
+        <h2>Kies een categorie</h2>
+        <div id="loopCategories" class="dashboard">
+          <div class="card category" onclick="showCategory('cat1')">Attack Tools</div>
+          <div class="card category" onclick="showCategory('cat2')">Kechs Tools</div>
+          <div class="card category" onclick="showCategory('cat3')">Misdaad Tools</div>
+          <div class="card category" onclick="showCategory('cat4')">Custom Tools</div>
+        </div>
+        <div id="categoryLoops" style="display:none;"></div>
+      </div>
+
+      <!-- STATS -->
+      <div id="stats" class="page">
+        <h2>Statistieken</h2>
+        <div class="card">
+          <canvas id="statsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div id="settings" class="page">
+        <h2>Settings</h2>
+        <div class="card"><p>Configuratie opties.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// 🔑 Wachtwoord
+const PASSWORD = "Nattekut123";
+function checkPassword(){
+  const input = document.getElementById('passwordInput').value;
+  const errorDiv = document.getElementById('loginError');
+  if(input === PASSWORD){
+    document.getElementById('loginOverlay').style.display = 'none';
+  } else {
+    errorDiv.innerText = "Ongeldig wachtwoord!";
+  }
+}
+
+// Klok
+function startClock(){
+  function updateClock(){
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    const s = String(now.getSeconds()).padStart(2,'0');
+    document.getElementById('clock').innerText = `${h}:${m}:${s}`;
+    requestAnimationFrame(updateClock);
+  }
+  updateClock();
+}
+startClock();
+
+// Navigatie
+function showPage(id){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  if(id==='loops'){
+    document.getElementById("loopCategories").style.display="grid";
+    document.getElementById("categoryLoops").style.display="none";
+  }
+}
+
+// ==================== COMPLETE LOOPS SCRIPT ====================
+
+// Loop data – 4 loops per categorie
+const categories={
+  cat1:[
+    {name:"Attack lijst, bendes hoog inkomen.", sites:["https://boef.nl/attack/174788", "https://boef.nl/attack/174862", "https://boef.nl/attack/172719", "https://boef.nl/attack/173099", "https://boef.nl/attack/172877", "https://boef.nl/attack/159890", "https://boef.nl/attack/73062",
+		"https://boef.nl/attack/174936", "https://boef.nl/attack/174791", "https://boef.nl/attack/172637", "https://boef.nl/attack/159103", "https://boef.nl/attack/107346", "https://boef.nl/attack/164143", "https://boef.nl/attack/174968",
+		"https://boef.nl/attack/171306", "https://boef.nl/attack/174943", "https://boef.nl/attack/172252", "https://boef.nl/attack/173879", "https://boef.nl/attack/155401", "https://boef.nl/attack/174957", "https://boef.nl/attack/174664",
+		"https://boef.nl/attack/172752", "https://boef.nl/attack/172148", "https://boef.nl/attack/172736", "https://boef.nl/attack/169996", "https://boef.nl/attack/174899", "https://boef.nl/attack/172392", "https://boef.nl/attack/174758",
+		"https://boef.nl/attack/165308", "https://boef.nl/attack/171975"]},
+    {name:"Attack lijst, top 20 kechs.", sites:["https://boef.nl/attack/173099", "https://boef.nl/attack/147884", "https://boef.nl/attack/174957", "https://boef.nl/attack/174664", "https://boef.nl/attack/171384", "https://boef.nl/attack/167970", 
+		"https://boef.nl/attack/174367", "https://boef.nl/attack/161232", "https://boef.nl/attack/171228", "https://boef.nl/attack/174689", "https://boef.nl/attack/172752", "https://boef.nl/attack/174862", "https://boef.nl/attack/147886", 
+		"https://boef.nl/attack/174788", "https://boef.nl/attack/174681", "https://boef.nl/attack/172736", "https://boef.nl/attack/172877", "https://boef.nl/attack/172880", "https://boef.nl/attack/172200", "https://boef.nl/attack/173795",]},
+    {name:"Attack 200-400 x voor koffers", sites:["https://boef.nl/attack/174713","https://boef.nl/attack/174714"]},
+    {name:"Attack test MW", sites:["https://bulletstarclassic.nl/bitch/Zekl3",
+"https://bulletstarclassic.nl/bitch/Zennick",
+"https://bulletstarclassic.nl/bitch/Zentible",
+"https://bulletstarclassic.nl/bitch/Zer0pl0x",
+"https://bulletstarclassic.nl/bitch/Zero",
+"https://bulletstarclassic.nl/bitch/zeus",
+"https://bulletstarclassic.nl/bitch/zigeunertje0",
+"https://bulletstarclassic.nl/bitch/Ziisu",
+"https://bulletstarclassic.nl/bitch/Zina",
+"https://bulletstarclassic.nl/bitch/Zita",
+"https://bulletstarclassic.nl/bitch/Zk2060",
+"https://bulletstarclassic.nl/bitch/zn-eigen-moeder",
+"https://bulletstarclassic.nl/bitch/Zotteke-",
+"https://bulletstarclassic.nl/bitch/Zotteke_",
+"https://bulletstarclassic.nl/bitch/Zustertje",
+"https://bulletstarclassic.nl/bitch/ZwarteJoop",
+"https://bulletstarclassic.nl/bitch/Zwarteweduwe",
+"https://bulletstarclassic.nl/bitch/Zylflix",
+"https://bulletstarclassic.nl/bitch/Wtheking",
+"https://bulletstarclassic.nl/bitch/Xclna",
+"https://bulletstarclassic.nl/bitch/Xerzex",
+"https://bulletstarclassic.nl/bitch/xjeroonex",
+"https://bulletstarclassic.nl/bitch/Xliooodw",
+"https://bulletstarclassic.nl/bitch/Xlynniee",
+"https://bulletstarclassic.nl/bitch/xmaris",
+"https://bulletstarclassic.nl/bitch/xmoniquee",
+"https://bulletstarclassic.nl/bitch/Xopxmjh",
+"https://bulletstarclassic.nl/bitch/XRISEAGAINSTX",
+"https://bulletstarclassic.nl/bitch/XRositaX",
+"https://bulletstarclassic.nl/bitch/Yasmina",
+"https://bulletstarclassic.nl/index.php?p=crimes",
+"https://bulletstarclassic.nl/index.php?p=algemeen-ziekenhuis",														
+"https://bulletstarclassic.nl/bitch/Yellowblue",
+"https://bulletstarclassic.nl/bitch/Yeti",
+"https://bulletstarclassic.nl/bitch/YoPopa",
+"https://bulletstarclassic.nl/bitch/Youss",
+"https://bulletstarclassic.nl/bitch/Yucatan",
+"https://bulletstarclassic.nl/bitch/Zaadloos",
+"https://bulletstarclassic.nl/bitch/zatre",
+"https://bulletstarclassic.nl/bitch/Zeb010",
+"https://bulletstarclassic.nl/bitch/vodyyyy",
+"https://bulletstarclassic.nl/bitch/Voorjoueenvraag",
+"https://bulletstarclassic.nl/bitch/W1ZRRD",
+"https://bulletstarclassic.nl/bitch/waeb89",
+"https://bulletstarclassic.nl/bitch/walker",
+"https://bulletstarclassic.nl/bitch/wally2508",
+"https://bulletstarclassic.nl/bitch/WalterWhite",
+"https://bulletstarclassic.nl/bitch/WBVJan",
+"https://bulletstarclassic.nl/bitch/Weskepablo",
+"https://bulletstarclassic.nl/bitch/WhatEver",
+"https://bulletstarclassic.nl/bitch/White-Tiger",
+"https://bulletstarclassic.nl/bitch/Whoopper",
+"https://bulletstarclassic.nl/bitch/whynut",
+"https://bulletstarclassic.nl/bitch/Wickedwitch",
+"https://bulletstarclassic.nl/bitch/Wiljan",
+"https://bulletstarclassic.nl/bitch/WillyWonka",
+"https://bulletstarclassic.nl/bitch/Wiseguy",
+"https://bulletstarclassic.nl/bitch/WOLF",
+"https://bulletstarclassic.nl/bitch/Wolfje27",
+"https://bulletstarclassic.nl/bitch/WonderWeiss",
+"https://bulletstarclassic.nl/bitch/Twixbeer",
+"https://bulletstarclassic.nl/index.php?p=voertuigen-stelen",													
+"https://bulletstarclassic.nl/bitch/Ufopiloot",
+"https://bulletstarclassic.nl/bitch/UhtreeD",
+"https://bulletstarclassic.nl/index.php?p=crimes",
+"https://bulletstarclassic.nl/index.php?p=algemeen-ziekenhuis",														
+"https://bulletstarclassic.nl/bitch/uitBlinker",
+"https://bulletstarclassic.nl/bitch/Unknown",
+"https://bulletstarclassic.nl/bitch/unseensavage",
+"https://bulletstarclassic.nl/bitch/Vaassen",
+"https://bulletstarclassic.nl/bitch/Vea_",
+"https://bulletstarclassic.nl/bitch/Vedetta",
+"https://bulletstarclassic.nl/bitch/velrosa",
+"https://bulletstarclassic.nl/bitch/Veltrix",
+"https://bulletstarclassic.nl/bitch/Vendeza",
+"https://bulletstarclassic.nl/bitch/Venom",
+"https://bulletstarclassic.nl/bitch/Verrader",
+"https://bulletstarclassic.nl/bitch/Veuleke",
+"https://bulletstarclassic.nl/bitch/Victoria",
+"https://bulletstarclassic.nl/bitch/ViperDW",
+"https://bulletstarclassic.nl/bitch/Vitesseboy7",
+"https://bulletstarclassic.nl/bitch/Vitodoncorleone",
+"https://bulletstarclassic.nl/bitch/VladimirPoetin",
+"https://bulletstarclassic.nl/bitch/Thestriper",
+"https://bulletstarclassic.nl/bitch/The_Boss",
+"https://bulletstarclassic.nl/bitch/The_Undertaker",
+"https://bulletstarclassic.nl/bitch/ThomasShelby",
+"https://bulletstarclassic.nl/bitch/tijn033",
+"https://bulletstarclassic.nl/bitch/Tildy",
+"https://bulletstarclassic.nl/bitch/timotsjoek",
+"https://bulletstarclassic.nl/bitch/tjabo999",
+"https://bulletstarclassic.nl/bitch/Tjaico",
+"https://bulletstarclassic.nl/bitch/Tjapito",
+"https://bulletstarclassic.nl/bitch/tocks",
+"https://bulletstarclassic.nl/bitch/Tofast",
+"https://bulletstarclassic.nl/bitch/Tomb931",
+"https://bulletstarclassic.nl/bitch/Tommy",
+"https://bulletstarclassic.nl/index.php?p=crimes",
+"https://bulletstarclassic.nl/index.php?p=algemeen-ziekenhuis",														
+"https://bulletstarclassic.nl/bitch/tommygun666X",
+"https://bulletstarclassic.nl/bitch/TommyVercetti",
+"https://bulletstarclassic.nl/bitch/Topsecret",
+"https://bulletstarclassic.nl/bitch/toto",
+"https://bulletstarclassic.nl/bitch/Tunsii23",
+"https://bulletstarclassic.nl/bitch/Tupac_Shakur",
+"https://bulletstarclassic.nl/bitch/terrorspike",
+"https://bulletstarclassic.nl/bitch/testest",
+"https://bulletstarclassic.nl/bitch/ThcR",
+"https://bulletstarclassic.nl/bitch/The-Joker",
+"https://bulletstarclassic.nl/bitch/the-ripper",
+"https://bulletstarclassic.nl/bitch/the-rock",
+"https://bulletstarclassic.nl/bitch/THE3XILLED",
+"https://bulletstarclassic.nl/bitch/theCaptain",
+"https://bulletstarclassic.nl/bitch/TheChosenOne",
+"https://bulletstarclassic.nl/bitch/TheFatPurpleGuu",
+"https://bulletstarclassic.nl/bitch/TheGoat",
+"https://bulletstarclassic.nl/bitch/Thehottwink",
+"https://bulletstarclassic.nl/bitch/TheJokeIsOnYou",
+"https://bulletstarclassic.nl/bitch/TheKey045",
+"https://bulletstarclassic.nl/bitch/TheKillerClown",
+"https://bulletstarclassic.nl/bitch/TheLord",
+"https://bulletstarclassic.nl/index.php?p=voertuigen-stelen",														
+"https://bulletstarclassic.nl/bitch/TheOnlyRealOne",
+"https://bulletstarclassic.nl/bitch/TheReason",
+"https://bulletstarclassic.nl/bitch/TheRichAunt",
+"https://bulletstarclassic.nl/bitch/TheSaint",
+"https://bulletstarclassic.nl/bitch/Superkiller",
+"https://bulletstarclassic.nl/bitch/SupersaiyanGoku",
+"https://bulletstarclassic.nl/bitch/Susanne21",
+"https://bulletstarclassic.nl/bitch/svc",
+"https://bulletstarclassic.nl/bitch/SwaffelBrigade",
+"https://bulletstarclassic.nl/index.php?p=crimes",
+"https://bulletstarclassic.nl/index.php?p=algemeen-ziekenhuis",														
+"https://bulletstarclassic.nl/bitch/swalc",
+"https://bulletstarclassic.nl/bitch/sweeps",
+"https://bulletstarclassic.nl/bitch/SweetLady",
+"https://bulletstarclassic.nl/bitch/Syrix",
+"https://bulletstarclassic.nl/bitch/T-Stunna",
+"https://bulletstarclassic.nl/bitch/Tanja",
+"https://bulletstarclassic.nl/bitch/Tarabruinenn",
+"https://bulletstarclassic.nl/bitch/Tarantula",
+"https://bulletstarclassic.nl/bitch/tarzan",
+"https://bulletstarclassic.nl/bitch/Tastefull",
+"https://bulletstarclassic.nl/bitch/Tate",
+"https://bulletstarclassic.nl/bitch/Tatiii1990",
+"https://bulletstarclassic.nl/bitch/Tatta",
+"https://bulletstarclassic.nl/bitch/TERROR",
+"https://bulletstarclassic.nl/bitch/Terroriana",
+"https://bulletstarclassic.nl/bitch/Spopovich",
+"https://bulletstarclassic.nl/bitch/Squeaky",
+"https://bulletstarclassic.nl/bitch/Stalonne",
+"https://bulletstarclassic.nl/bitch/Stamina",
+"https://bulletstarclassic.nl/bitch/Stanno",
+"https://bulletstarclassic.nl/bitch/Steve1309",
+"https://bulletstarclassic.nl/bitch/STEXX",
+"https://bulletstarclassic.nl/bitch/StickyNicky",
+"https://bulletstarclassic.nl/bitch/Stitch",
+"https://bulletstarclassic.nl/bitch/Stonyblair",
+"https://bulletstarclassic.nl/bitch/stracci",
+"https://bulletstarclassic.nl/bitch/Strawberry",
+"https://bulletstarclassic.nl/bitch/Strawhats",
+"https://bulletstarclassic.nl/bitch/Streek",
+"https://bulletstarclassic.nl/bitch/StreetKingZ92",
+"https://bulletstarclassic.nl/bitch/Stylius",
+"https://bulletstarclassic.nl/index.php?p=crimes",
+"https://bulletstarclassic.nl/index.php?p=algemeen-ziekenhuis",															
+"https://bulletstarclassic.nl/bitch/Sucukton",
+"https://bulletstarclassic.nl/bitch/Sucukton-42",
+"https://bulletstarclassic.nl/bitch/Suitt072",
+"https://bulletstarclassic.nl/bitch/Super-Mario",
+"https://bulletstarclassic.nl/bitch/Smacks1337",
+"https://bulletstarclassic.nl/bitch/SmaikelS",
+"https://bulletstarclassic.nl/bitch/smash-it",
+"https://bulletstarclassic.nl/bitch/Smok3yDutch87",
+"https://bulletstarclassic.nl/bitch/Snappie",
+"https://bulletstarclassic.nl/bitch/snelheid100",
+"https://bulletstarclassic.nl/bitch/Snippykayee",
+"https://bulletstarclassic.nl/bitch/snuifduif010",
+"https://bulletstarclassic.nl/bitch/so3120pe",
+"https://bulletstarclassic.nl/bitch/Sofievl",
+"https://bulletstarclassic.nl/bitch/Sooosss",
+"https://bulletstarclassic.nl/index.php?p=voertuigen-stelen",														
+"https://bulletstarclassic.nl/bitch/Sophie",
+"https://bulletstarclassic.nl/bitch/sosa",
+"https://bulletstarclassic.nl/bitch/Souls",
+"https://bulletstarclassic.nl/bitch/Spekje",
+"https://bulletstarclassic.nl/bitch/Spider",
+"https://bulletstarclassic.nl/bitch/Spits9",
+"https://bulletstarclassic.nl/bitch/Spitsie",
+"https://bulletstarclassic.nl/bitch/Spongebob",
+"https://bulletstarclassic.nl/bitch/Spookje"
+"https://bulletstarclassic.nl/bitch/QueenOfTheSouth",
+"https://bulletstarclassic.nl/bitch/QueenV",
+"https://bulletstarclassic.nl/bitch/Queen_M",
+"https://bulletstarclassic.nl/bitch/Quincent076",
+"https://bulletstarclassic.nl/bitch/R00T",
+"https://bulletstarclassic.nl/bitch/Raflesia",
+"https://bulletstarclassic.nl/bitch/Raitaitai",
+"https://bulletstarclassic.nl/index.php?p=crimes",
+"https://bulletstarclassic.nl/index.php?p=algemeen-ziekenhuis",															
+"https://bulletstarclassic.nl/bitch/Rambo",
+"https://bulletstarclassic.nl/bitch/Rambo0345",
+"https://bulletstarclassic.nl/bitch/Ramonh1993",
+"https://bulletstarclassic.nl/bitch/Rampagenl",
+"https://bulletstarclassic.nl/bitch/Randykontebonker",
+"https://bulletstarclassic.nl/bitch/RaNisa",
+"https://bulletstarclassic.nl/bitch/Rapunzel",
+"https://bulletstarclassic.nl/bitch/Razouki",
+"https://bulletstarclassic.nl/bitch/RebelDutchie",
+"https://bulletstarclassic.nl/bitch/Red",
+"https://bulletstarclassic.nl/bitch/Redband94",
+"https://bulletstarclassic.nl/bitch/Reddington",
+"https://bulletstarclassic.nl/bitch/RedEyeOMG",
+"https://bulletstarclassic.nl/bitch/plugggg",
+"https://bulletstarclassic.nl/bitch/Pocahontas",
+"https://bulletstarclassic.nl/bitch/PoisonIvy",
+"https://bulletstarclassic.nl/bitch/Pokerface2you",
+"https://bulletstarclassic.nl/bitch/Polderman",
+"https://bulletstarclassic.nl/bitch/ppd-owner",
+"https://bulletstarclassic.nl/bitch/Predator",
+"https://bulletstarclassic.nl/bitch/Pressy1080",
+"https://bulletstarclassic.nl/bitch/PrettyPink",
+"https://bulletstarclassic.nl/bitch/PrinsMario",
+"https://bulletstarclassic.nl/bitch/Prissx15",
+"https://bulletstarclassic.nl/bitch/Produtchson999",
+"https://bulletstarclassic.nl/bitch/proffesional",
+"https://bulletstarclassic.nl/bitch/Prophet",
+"https://bulletstarclassic.nl/bitch/Pulp",
+"https://bulletstarclassic.nl/bitch/PurpleHaze",
+"https://bulletstarclassic.nl/bitch/Purpp",
+"https://bulletstarclassic.nl/bitch/PushKonijn",
+"https://bulletstarclassic.nl/index.php?p=crimes",
+"https://bulletstarclassic.nl/index.php?p=algemeen-ziekenhuis",															
+"https://bulletstarclassic.nl/bitch/QueenElsa",
+"https://bulletstarclassic.nl/bitch/QueenK",
+"https://bulletstarclassic.nl/bitch/OpZnHondjes",
+"https://bulletstarclassic.nl/bitch/ownag3r",
+"https://bulletstarclassic.nl/bitch/Ozzy",
+"https://bulletstarclassic.nl/bitch/paardje100",
+"https://bulletstarclassic.nl/bitch/Palestina",
+"https://bulletstarclassic.nl/bitch/Panterpoesje",
+"https://bulletstarclassic.nl/index.php?p=voertuigen-stelen",														
+"https://bulletstarclassic.nl/bitch/parraboyherre",
+"https://bulletstarclassic.nl/bitch/Patron",
+"https://bulletstarclassic.nl/bitch/PauperKabouter",
+"https://bulletstarclassic.nl/bitch/Peck",
+"https://bulletstarclassic.nl/bitch/Pegasus",
+"https://bulletstarclassic.nl/bitch/Peno",
+"https://bulletstarclassic.nl/bitch/persephone",
+"https://bulletstarclassic.nl/bitch/Phoenix",
+"https://bulletstarclassic.nl/bitch/PickThaLock",
+"https://bulletstarclassic.nl/bitch/Pietertje",
+"https://bulletstarclassic.nl/bitch/Pinkstarr",
+"https://bulletstarclassic.nl/bitch/Pinpaco",
+"https://bulletstarclassic.nl/bitch/Pipapannenkoek",
+"https://bulletstarclassic.nl/bitch/PLOFKRAAK",
+"https://bulletstarclassic.nl/bitch/Noctarose",
+"https://bulletstarclassic.nl/bitch/Noirra",
+"https://bulletstarclassic.nl/bitch/Nokk",
+"https://bulletstarclassic.nl/bitch/NoMercy",
+"https://bulletstarclassic.nl/bitch/Noompjee",
+"https://bulletstarclassic.nl/bitch/NotLikeUs",
+"https://bulletstarclassic.nl/bitch/Nur",
+"https://bulletstarclassic.nl/bitch/Nyx",
+"https://bulletstarclassic.nl/bitch/Nyxa",
+"https://bulletstarclassic.nl/index.php?p=crimes",
+"https://bulletstarclassic.nl/index.php?p=algemeen-ziekenhuis",																																										
+"https://bulletstarclassic.nl/bitch/NyxWhisper",
+"https://bulletstarclassic.nl/bitch/o12",
+"https://bulletstarclassic.nl/bitch/Odysseus",
+"https://bulletstarclassic.nl/bitch/OGShadow",
+"https://bulletstarclassic.nl/bitch/oldambt",
+"https://bulletstarclassic.nl/bitch/oldghz",
+"https://bulletstarclassic.nl/bitch/omarelm",
+"https://bulletstarclassic.nl/bitch/Onderbroek",
+"https://bulletstarclassic.nl/bitch/onderenes38",
+"https://bulletstarclassic.nl/bitch/Ophelia",
+"https://bulletstarclassic.nl/bitch/Opperman"]},]}
+ 
+  ],
+  cat2:[
+    {name:"Kechs voor CrashOut spelers.", sites:["https://boef.nl/Mr69", "https://boef.nl/rowena", "https://boef.nl/kipcbs", "https://boef.nl/Xiomara", "https://boef.nl/Justinfcu030", "https://boef.nl/Bossiee", "https://boef.nl/TOP-RIPPER",
+		"https://boef.nl/Langemaniac", "https://boef.nl/Scarface", "https://boef.nl/Faye", "https://boef.nl/Darkbella", "https://boef.nl/Koppig", "https://boef.nl/Pocahontas", "https://boef.nl/Syze", "https://boef.nl/Nemzzz"]},
+    {name:"Missie tool: Kechs zoeken. (130x)", sites:["https://boef.nl/MISS",
+"https://boef.nl/antwerpxdiva",
+"https://boef.nl/jemoeder",
+"https://boef.nl/sharon20",
+"https://boef.nl/theking77nl",
+"https://boef.nl/SoldierBoy",
+"https://boef.nl/ChampagnePapi",
+"https://boef.nl/canssu",
+"https://boef.nl/ikmisje",
+"https://boef.nl/Filinta",
+"https://boef.nl/RishaywinBangBang",
+"https://boef.nl/GroteBozeWolf",
+"https://boef.nl/samosa",
+"https://boef.nl/Girly",
+"https://boef.nl/GlucoseMoeder",
+"https://boef.nl/Roosje",
+"https://boef.nl/NoTimeToLose",
+"https://boef.nl/Luciano",
+"https://boef.nl/katzzeye",
+"https://boef.nl/Bubbels",
+"https://boef.nl/LadyNoir",
+"https://boef.nl/ggdnederland",
+"https://boef.nl/aajebroer",
+"https://boef.nl/Beunhaas",
+"https://boef.nl/Calimero",
+"https://boef.nl/ZoekMijNiet",
+"https://boef.nl/kipcbs",
+"https://boef.nl/specialist",
+"https://boef.nl/Don-Diablo",
+"https://boef.nl/Danny_FR",
+"https://boef.nl/Fliepflap",
+"https://boef.nl/Koppig",
+"https://boef.nl/TOP-RIPPER",
+"https://boef.nl/Faye",
+"https://boef.nl/ABI",
+"https://boef.nl/dnyce",
+"https://boef.nl/TylerDurden",
+"https://boef.nl/Nemzzz",
+"https://boef.nl/ZuurkoolZebra",
+"https://boef.nl/Jade",
+"https://boef.nl/NVT",
+"https://boef.nl/erik",
+"https://boef.nl/politie",
+"https://boef.nl/Notorious420",
+"https://boef.nl/EdwardCrowe",
+"https://boef.nl/Mr69",
+"https://boef.nl/Bossiee",
+"https://boef.nl/TheDevilWearsPrada",
+"https://boef.nl/antoin",
+"https://boef.nl/Kevcody",
+"https://boef.nl/emma",
+"https://boef.nl/Baba",
+"https://boef.nl/PrincessSenna",
+"https://boef.nl/LaJefa",
+"https://boef.nl/mikevdm3011",
+"https://boef.nl/Ladyy",
+"https://boef.nl/Immortale",
+"https://boef.nl/Xaden",
+"https://boef.nl/Redbull",
+"https://boef.nl/Assepoester",
+"https://boef.nl/arnoniem",
+"https://boef.nl/Marlasinger",
+"https://boef.nl/ElWhite",
+"https://boef.nl/GwenetteMartha",
+"https://boef.nl/Mrlaa",
+"https://boef.nl/Coca",
+"https://boef.nl/StellrrNinja",
+"https://boef.nl/icey",
+"https://boef.nl/Daemora",
+"https://boef.nl/LaylaAl-Maut",
+"https://boef.nl/mademoiselle",
+"https://boef.nl/Xiomara",
+"https://boef.nl/pinokkio",
+"https://boef.nl/Ninaa",
+"https://boef.nl/RobbyKeene",
+"https://boef.nl/Chucha",
+"https://boef.nl/Razoukii030",
+"https://boef.nl/Zlata",
+"https://boef.nl/Elvira",
+"https://boef.nl/quitthecap",
+"https://boef.nl/Morenaa",
+"https://boef.nl/Darkbella",
+"https://boef.nl/rowena",
+"https://boef.nl/Orion",
+"https://boef.nl/gritsel",
+"https://boef.nl/eminem",
+"https://boef.nl/Syze",
+"https://boef.nl/Justinfcu030",
+"https://boef.nl/Langemaniac",
+"https://boef.nl/Scarface",
+"https://boef.nl/Pocahontas",
+"https://boef.nl/Malia",
+"https://boef.nl/deenige",
+"https://boef.nl/exilon",
+"https://boef.nl/devilsangel020",
+"https://boef.nl/bafferlino",
+"https://boef.nl/souftog",
+"https://boef.nl/lucius",
+"https://boef.nl/harmientje",
+"https://boef.nl/R-squared",
+"https://boef.nl/Maffiakiller",
+"https://boef.nl/luckyjoe",
+"https://boef.nl/ironladyx",
+"https://boef.nl/lotte",
+"https://boef.nl/Celusian",
+"https://boef.nl/hazyhustler",
+"https://boef.nl/Wick",
+"https://boef.nl/meesterripper",
+"https://boef.nl/Baddie038",
+"https://boef.nl/Terror-Clown",
+"https://boef.nl/soufdeboef",
+"https://boef.nl/POVRonnie",
+"https://boef.nl/LaDiabla",
+"https://boef.nl/Apollo",
+"https://boef.nl/lasje",
+"https://boef.nl/Violet",
+"https://boef.nl/Mohs92",
+"https://boef.nl/fr33zzz",
+"https://boef.nl/Sate_stokje",
+"https://boef.nl/Zeurprise",
+"https://boef.nl/Konjo",
+"https://boef.nl/Maffiakillermeid",
+"https://boef.nl/FallenAngel",
+"https://boef.nl/LittleBitch074",
+"https://boef.nl/ilyasbouzz",
+"https://boef.nl/mjr",
+"https://boef.nl/Splashy",
+"https://boef.nl/CherylMorero",
+"https://boef.nl/soww19",
+"https://boef.nl/hasj"]},
+    {name:"Kechs voor de Wallen", sites:["https://boef.nl/baiis","https://boef.nl/Nexar","https://boef.nl/Nyro","https://boef.nl/gravity","https://boef.nl/Voltix","https://boef.nl/Specialist",
+"https://boef.nl/fozzie","https://boef.nl/Kryven","https://boef.nl/Drayko","https://boef.nl/Zynox","https://boef.nl/Syntra","https://boef.nl/kermit","https://boef.nl/Raxel","https://boef.nl/Veltox","https://boef.nl/Talonix","https://boef.nl/Virex",
+"https://boef.nl/Marcobo","https://boef.nl/Kairox","https://boef.nl/Vitoc","https://boef.nl/Brunanno","https://boef.nl/Lunex","https://boef.nl/lucciano","https://boef.nl/Vantor","https://boef.nl/Enzof","https://boef.nl/Rynex",
+"https://boef.nl/Dantescio","https://boef.nl/Stryve","https://boef.nl/Roccos","https://boef.nl/Exilon","https://boef.nl/Nicoty"]},
+    {name:"Kech Loop 4", sites:["https://boef.nl/kech7","https://boef.nl/kech8"]}
+  ],
+  cat3:[
+    {name:"Activiteiten TOOL", sites:["https://boef.nl/page/vehicles/steal", "https://boef.nl/page/crimes","https://boef.nl/page/money-raid", "https://boef.nl/page/hospital", "https://boef.nl/page/safe"]},
+    {name:"Misdaad Loop 2", sites:["https://boef.nl/mis3","https://boef.nl/mis4"]},
+    {name:"Misdaad Loop 3", sites:["https://boef.nl/mis5","https://boef.nl/mis6"]},
+    {name:"Misdaad Loop 4", sites:["https://boef.nl/mis7","https://boef.nl/mis8"]}
+  ],
+  cat4:[
+    {name:"Custom Loop 1", sites:[]}
+  ]
+};
+
+let categoryPopups={}, categoryTimers={}, categoryIndexes={}, bars={}, autoOpenTimers={}, countdownIntervals={};
+
+function showCategory(catId){
+  document.getElementById("loopCategories").style.display="none";
+  const container=document.getElementById("categoryLoops");
+  container.style.display="grid";
+  container.style.gridTemplateColumns="repeat(2,1fr)";
+  container.style.gap="15px";
+  container.innerHTML="";
+  const loopsInCat=categories[catId];
+  loopsInCat.forEach((loop,i)=>{
+    const div=document.createElement("div");
+    div.className="card loop";
+
+    let html=`
+      <div class="input-block">
+        <label>Refresh tijd (sec)</label>
+        <input type="number" id="duration${catId}${i}" value="5" min="1">
+      </div>
+      <button class="start" onclick="startCategoryLoop('${catId}',${i})">Start</button>
+      <button class="stop" onclick="stopCategoryLoop('${catId}',${i})">Stop</button>
+      <div class="barbg"><div class="bar" id="cat${catId}bar${i}"></div></div>
+      <h3>${loop.name}</h3>
+    `;
+
+    if(catId==='cat4'){
+      html=`
+        <div class="input-block">
+          <label>Voer URL in</label>
+          <input type="text" id="customURL${i}" placeholder="https://example.com">
+          <button class="start" onclick="addCustomURL(${i})">Toevoegen</button>
+        </div>
+        <div class="input-block">
+          <label>Open automatisch om (HH:MM:SS)</label>
+          <input type="text" id="autoOpenTime${i}" placeholder="08:30:15">
+          <label>Auto-typ (selector|waarde)</label>
+          <input type="text" id="autoType${i}" placeholder="#idInput|1234">
+          <button class="start" onclick="setAutoOpen(${i})">Instellen</button>
+          <span class="countdown" id="countdown${i}"></span>
+        </div>
+      `+html;
+    }
+
+    div.innerHTML=html;
+    container.appendChild(div);
+    bars[`cat${catId}${i}`]=document.getElementById(`cat${catId}bar${i}`);
+  });
+}
+
+// Voeg Custom URL toe
+function addCustomURL(i){
+  const url=document.getElementById(`customURL${i}`).value;
+  if(!url) return alert("Voer een URL in!");
+  categories['cat4'][i].sites.push(url);
+  alert("URL toegevoegd!");
+}
+
+// Start/stop loops
+function startCategoryLoop(catId,i){
+  const loop=categories[catId][i];
+  if(!categoryIndexes[`${catId}${i}`]) categoryIndexes[`${catId}${i}`]=0;
+  if(!categoryPopups[`${catId}${i}`] || categoryPopups[`${catId}${i}`].closed){
+    if(loop.sites.length===0) return alert("Geen URL’s ingesteld!");
+    categoryPopups[`${catId}${i}`]=window.open(loop.sites[0],"_blank","width=1200,height=800");
+  }
+  let duration=parseInt(document.getElementById(`duration${catId}${i}`).value)*1000;
+  let startTime=Date.now();
+  function rotate(){
+    let elapsed=Date.now()-startTime;
+    let bar=bars[`cat${catId}${i}`];
+    let percent=Math.min((elapsed/duration)*100,100);
+    bar.style.width=percent+"%";
+    if(elapsed>=duration){
+      categoryIndexes[`${catId}${i}`]=(categoryIndexes[`${catId}${i}`]+1)%loop.sites.length;
+      try{categoryPopups[`${catId}${i}`].location.href=loop.sites[categoryIndexes[`${catId}${i}`]];}catch(e){}
+      startTime=Date.now();
+    }
+    categoryTimers[`${catId}${i}`]=requestAnimationFrame(rotate);
+  }
+  rotate();
+}
+
+function stopCategoryLoop(catId,i){
+  cancelAnimationFrame(categoryTimers[`${catId}${i}`]);
+  let bar=bars[`cat${catId}${i}`];
+  if(bar) bar.style.width="0%";
+  if(autoOpenTimers[i]) clearTimeout(autoOpenTimers[i]);
+  if(countdownIntervals[i]) clearInterval(countdownIntervals[i]);
+  document.getElementById(`countdown${i}`).innerText="";
+}
+
+// Auto-open met auto-type
+function setAutoOpen(i){
+  const timeInput=document.getElementById(`autoOpenTime${i}`).value;
+  if(!timeInput) return alert("Selecteer een tijd!");
+  const parts=timeInput.split(":").map(Number);
+  if(parts.length!==3) return alert("Gebruik HH:MM:SS");
+  const [hours,minutes,seconds]=parts;
+  const autoTypeInput=document.getElementById(`autoType${i}`).value;
+
+  if(autoOpenTimers[i]) clearTimeout(autoOpenTimers[i]);
+  if(countdownIntervals[i]) clearInterval(countdownIntervals[i]);
+
+  function updateCountdown(){
+    const now=new Date();
+    let target=new Date();
+    target.setHours(hours,minutes,seconds,0);
+    if(target<now) target.setDate(target.getDate()+1);
+    let diff=Math.max(0,Math.floor((target-now)/1000));
+    const h=String(Math.floor(diff/3600)).padStart(2,'0');
+    const m=String(Math.floor((diff%3600)/60)).padStart(2,'0');
+    const s=String(diff%60).padStart(2,'0');
+    document.getElementById(`countdown${i}`).innerText=` (${h}:${m}:${s})`;
+    if(diff<=0){
+      const loop=categories['cat4'][i];
+      if(loop.sites.length>0){
+        const win=window.open(loop.sites[0],"_blank","width=1200,height=800");
+        if(autoTypeInput){
+          try{
+            const [selector,value]=autoTypeInput.split("|");
+            win.onload=()=>{win.document.querySelector(selector).value=value;}
+          }catch(e){}
+        }
+      }
+      clearInterval(countdownIntervals[i]);
+      document.getElementById(`countdown${i}`).innerText="";
+    }
+  }
+
+  updateCountdown();
+  countdownIntervals[i]=setInterval(updateCountdown,1000);
+  alert(`Auto open ingesteld om ${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`);
+}
+
+// Grafiek voorbeeld
+const ctx=document.getElementById('statsChart').getContext('2d');
+const chart=new Chart(ctx,{
+  type:'bar',
+  data:{
+    labels:['Loops actief','Rpm','Windows open'],
+    datasets:[{
+      label:'Statistieken',
+      data:[0,0,0],
+      backgroundColor:['#22c55e','#0ff','#ef4444']
+    }]
+  },
+  options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+});
+</script>
+</body>
+</html>
